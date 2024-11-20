@@ -43,6 +43,7 @@ class LinkyTICReader(threading.Thread):
 
     def __init__(
         self,
+        hass,
         title: str,
         port: str,
         std_mode: bool,
@@ -52,6 +53,7 @@ class LinkyTICReader(threading.Thread):
     ) -> None:
         """Initialize the reader thread."""
         super().__init__(name=f"LinkyTIC_{title}")
+        self.hass = hass
         self._port = port
         self._std_mode = std_mode
         self._producer_mode = producer_mode
@@ -68,7 +70,7 @@ class LinkyTICReader(threading.Thread):
     async def _open_serial(self):
         """Open the serial connection."""
         try:
-            self._reader = await hass.async_add_executor_job(
+            self._reader = await self.hass.async_add_executor_job(
                 lambda: serial.serial_for_url(
                     url=self._port,
                     baudrate=MODE_STANDARD_BAUD_RATE if self._std_mode else MODE_HISTORIC_BAUD_RATE,

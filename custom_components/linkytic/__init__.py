@@ -33,6 +33,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     port = entry.data.get(SETUP_SERIAL)
     try:
         serial_reader = LinkyTICReader(
+            hass=hass,
             title=entry.title,
             port=port,
             std_mode=entry.data.get(SETUP_TICMODE) == TICMODE_STANDARD,
