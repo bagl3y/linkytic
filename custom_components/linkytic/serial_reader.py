@@ -64,8 +64,17 @@ class LinkyTICReader(threading.Thread):
         self._reader = None
         self._serial_number = None
         self.device_identification = {}
-        # Start with an empty dict
         self._last_values: dict[str, str] = {}
+        
+        self._first_line = True
+        self._frames_read = 0
+        self._values = {}
+        self._tags_seen = []
+        self._within_short_frame = False
+        self._notif_callbacks = {}
+        self._title = title
+        self._realtime = real_time
+        self._stopsignal = False
 
     async def _open_serial(self):
         """Open the serial connection."""
