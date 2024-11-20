@@ -80,8 +80,14 @@ class LinkyTICReader(threading.Thread):
                     timeout=1,
                 )
             )
-        except LINKY_IO_ERRORS as e:
+            _LOGGER.debug("Successfully opened serial connection to %s", self._port)
+        except serial.serialutil.SerialException as e:
             _LOGGER.error("Failed to open serial port %s: %s", self._port, e)
+            if "RFC2217" in str(e):
+                _LOGGER.error("RFC2217 specific error - check if the server is running and accessible")
+            raise
+        except Exception as e:
+            _LOGGER.error("Unexpected error opening serial port %s: %s", self._port, e)
             raise
 
     def get_values(self, tag) -> tuple[str | None, str | None]:
