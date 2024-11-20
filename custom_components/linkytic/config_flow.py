@@ -74,8 +74,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         title = user_input[SETUP_SERIAL]
         try:
             await linky_tic_tester(
-                device=_port,
-                std_mode=user_input[SETUP_TICMODE] == TICMODE_STANDARD,
+                self.hass,
+                _port,
+                user_input[SETUP_TICMODE] == TICMODE_STANDARD,
             )
         except CannotConnect as cannot_connect:
             _LOGGER.error("%s: can not connect: %s", title, cannot_connect)

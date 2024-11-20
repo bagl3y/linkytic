@@ -462,7 +462,7 @@ class InvalidChecksum(Exception):
         )
 
 
-async def linky_tic_tester(device: str, std_mode: bool) -> None:
+async def linky_tic_tester(hass, device: str, std_mode: bool) -> None:
     """Before starting the thread, this method can help validate configuration by opening the serial communication and read a line."""
     try:
         # Exécuter l'opération bloquante dans un thread séparé
