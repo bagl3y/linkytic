@@ -41,40 +41,46 @@ _LOGGER = logging.getLogger(__name__)
 class LinkyTICReader(threading.Thread):
     """Implements the reading of a serial Linky TIC."""
 
-    def __init__(self, title: str, port, std_mode, producer_mode, three_phase, real_time: bool | None = False) -> None:
-        """Init the LinkyTIC thread serial reader."""  # Thread
-        self._stopsignal = False
-        self._title = title
-        # Options
-        if real_time is None:
-            real_time = False
-        self._realtime = real_time
-        # Build
+    def __init__(
+        self,
+        title: str,
+        port: str,
+        std_mode: bool,
+        producer_mode: bool,
+        three_phase: bool,
+        real_time: bool,
+    ) -> None:
+        """Initialize the reader thread."""
+        super().__init__(name=f"LinkyTIC_{title}")
         self._port = port
-        self._baudrate = MODE_STANDARD_BAUD_RATE if std_mode else MODE_HISTORIC_BAUD_RATE
         self._std_mode = std_mode
-        self._producer_mode = producer_mode if std_mode else False
+        self._producer_mode = producer_mode
         self._three_phase = three_phase
-        # Run
-        self._reader: serial.Serial | None = None
-        self._values: dict[str, dict[str, str | None]] = {}
-        self._first_line = True
-        self._frames_read = -1  # we consider that the first frame will be incomplete
-        self._within_short_frame = False
-        self._tags_seen: list[str] = []
-        self.device_identification: dict[str, str | None] = {
-            DID_CONSTRUCTOR: None,
-            DID_REGNUMBER: None,
-            DID_TYPE: None,
-            DID_YEAR: None,
-        }  # will be set by the ADCO/ADSC tag
-        self._notif_callbacks: dict[str, Callable[[bool], None]] = {}
-        # Init parent thread class
-        self._serial_number = None
-        super().__init__(name=f"LinkyTIC for {title}")
+        self._real_time = real_time
+        self._stopevent = threading.Event()
+        self._callbacks: dict[str, list[Callable[[bool], None]]] = {}
+        self._reader = None
+        self.serial_number = None
+        self.device_identification = {}
+        # Start with an empty dict
+        self._last_values: dict[str, str] = {}
 
-        # Open port: failure will be reported to async_setup_entry
-        self._open_serial()
+    async def _open_serial(self):
+        """Open the serial connection."""
+        try:
+            self._reader = await hass.async_add_executor_job(
+                lambda: serial.serial_for_url(
+                    url=self._port,
+                    baudrate=MODE_STANDARD_BAUD_RATE if self._std_mode else MODE_HISTORIC_BAUD_RATE,
+                    bytesize=BYTESIZE,
+                    parity=PARITY,
+                    stopbits=STOPBITS,
+                    timeout=1,
+                )
+            )
+        except LINKY_IO_ERRORS as e:
+            _LOGGER.error("Failed to open serial port %s: %s", self._port, e)
+            raise
 
     def get_values(self, tag) -> tuple[str | None, str | None]:
         """Get tag value and timestamp from the thread memory cache."""
@@ -110,7 +116,7 @@ class LinkyTICReader(threading.Thread):
 
     def run(self):
         """Continuously read the the serial connection and extract TIC values."""
-        while not self._stopsignal:
+        while not self._stopevent.is_set():
             # Reader should have been opened.
             assert self._reader is not None
             if not self._reader.is_open:
@@ -217,39 +223,6 @@ class LinkyTICReader(threading.Thread):
                 except KeyError:
                     pass
         self._tags_seen = []
-
-    def _open_serial(self):
-        """Create (and open) the serial connection."""
-        self._reset_state()
-        self._reader = serial.serial_for_url(
-            url=self._port,
-            baudrate=self._baudrate,
-            bytesize=BYTESIZE,
-            parity=PARITY,
-            stopbits=STOPBITS,
-            timeout=1,
-        )
-        _LOGGER.info("Serial connection is now open at %s", self._port)
-
-    def _reset_state(self):
-        """Reinitialize the controller (by nullifying it) and wait 5s for other methods to re start init after a pause."""
-        _LOGGER.debug("Resetting serial reader state and wait 10s")
-        self._values = {}
-        self._serial_number = None
-        # Inform sensor in push mode to come fetch data (will get None and switch to unavailable)
-        for notif_callback in self._notif_callbacks.values():
-            notif_callback(self._realtime)
-        self._first_line = True
-        self._frames_read = -1
-        self._within_short_frame = False
-        self.device_identification = {
-            DID_CONSTRUCTOR: None,
-            DID_CONSTRUCTOR_CODE: None,
-            DID_REGNUMBER: None,
-            DID_TYPE: None,
-            DID_TYPE_CODE: None,
-            DID_YEAR: None,
-        }
 
     def _parse_line(self, line) -> str | None:
         """Parse a line when a full line has been read from serial. It parses it as Linky TIC infos, validate its checksum and save internally the line infos."""

@@ -40,6 +40,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             three_phase=entry.data.get(SETUP_THREEPHASE),
             real_time=entry.options.get(OPTIONS_REALTIME),
         )
+        await serial_reader._open_serial()
         serial_reader.start()
 
         async def read_serial_number(serial: LinkyTICReader):
