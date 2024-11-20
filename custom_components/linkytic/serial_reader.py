@@ -462,28 +462,32 @@ class InvalidChecksum(Exception):
         )
 
 
-def linky_tic_tester(device: str, std_mode: bool) -> None:
-    """Before starting the thread, this method can help validate configuration by opening the serial communication and read a line. It returns None if everything went well or a string describing the error."""
-    # Open connection
+async def linky_tic_tester(device: str, std_mode: bool) -> None:
+    """Before starting the thread, this method can help validate configuration by opening the serial communication and read a line."""
     try:
-        serial_reader = serial.serial_for_url(
-            url=device,
-            baudrate=MODE_STANDARD_BAUD_RATE if std_mode else MODE_HISTORIC_BAUD_RATE,
-            bytesize=BYTESIZE,
-            parity=PARITY,
-            stopbits=STOPBITS,
-            timeout=1,
+        # Exécuter l'opération bloquante dans un thread séparé
+        serial_reader = await hass.async_add_executor_job(
+            lambda: serial.serial_for_url(
+                url=device,
+                baudrate=MODE_STANDARD_BAUD_RATE if std_mode else MODE_HISTORIC_BAUD_RATE,
+                bytesize=BYTESIZE,
+                parity=PARITY,
+                stopbits=STOPBITS,
+                timeout=1,
+            )
         )
     except serial.serialutil.SerialException as exc:
         raise CannotConnect(f"Unable to connect to the serial device {device}: {exc}") from exc
+
     # Try to read a line
     try:
-        serial_reader.readline()
+        await hass.async_add_executor_job(serial_reader.readline)
     except serial.serialutil.SerialException as exc:
-        serial_reader.close()
+        await hass.async_add_executor_job(serial_reader.close)
         raise CannotRead(f"Failed to read a line: {exc}") from exc
+
     # All good
-    serial_reader.close()
+    await hass.async_add_executor_job(serial_reader.close)
 
 
 class CannotConnect(Exception):

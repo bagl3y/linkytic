@@ -73,7 +73,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
         title = user_input[SETUP_SERIAL]
         try:
-            linky_tic_tester(
+            await linky_tic_tester(
                 device=_port,
                 std_mode=user_input[SETUP_TICMODE] == TICMODE_STANDARD,
             )
