@@ -60,7 +60,7 @@ class LinkyTICReader(threading.Thread):
         self._stopevent = threading.Event()
         self._callbacks: dict[str, list[Callable[[bool], None]]] = {}
         self._reader = None
-        self.serial_number = None
+        self._serial_number = None
         self.device_identification = {}
         # Start with an empty dict
         self._last_values: dict[str, str] = {}
@@ -108,6 +108,11 @@ class LinkyTICReader(threading.Thread):
     def serial_number(self) -> str | None:
         """Returns meter serial number (ADSC or ADCO tag)."""
         return self._serial_number
+
+    @serial_number.setter
+    def serial_number(self, value: str | None) -> None:
+        """Set meter serial number."""
+        self._serial_number = value
 
     @property
     def port(self) -> str:
